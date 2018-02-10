@@ -6,9 +6,8 @@ import { StatusBar } from '@ionic-native/status-bar';
 
 import { MyApp } from './app.component';
 import { HomePage } from '../pages/home/home';
-import { SocketIoModule, SocketIoConfig } from 'ng-socket-io';
 import { ScreenOrientation } from '@ionic-native/screen-orientation';
-import { WebSocketProvider } from '../providers/web-socket/web-socket';
+
 
 @NgModule({
   declarations: [
@@ -18,7 +17,7 @@ import { WebSocketProvider } from '../providers/web-socket/web-socket';
   imports: [
     BrowserModule,
     IonicModule.forRoot(MyApp),
-    SocketIoModule
+    
   ],
   bootstrap: [IonicApp],
   entryComponents: [
@@ -30,7 +29,6 @@ import { WebSocketProvider } from '../providers/web-socket/web-socket';
     SplashScreen,
     {provide: ErrorHandler, useClass: IonicErrorHandler},
     ScreenOrientation,
-    WebSocketProvider
   ]
 })
 export class AppModule {}

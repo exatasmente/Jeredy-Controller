@@ -1,10 +1,10 @@
 import { Component, ViewChild } from '@angular/core';
-import { NavController, ToastController } from 'ionic-angular';
+import { NavController } from 'ionic-angular';
+import io from 'socket.io-client';
 
-import { Observable } from 'rxjs/Observable';
-import { WebSocketProvider } from '../../providers/web-socket/web-socket';
-import nipplejs from 'nipplejs';
-
+import { NgZone } from '@angular/core';
+import { LoadingController } from 'ionic-angular/components/loading/loading-controller';
+import { AlertController } from 'ionic-angular/components/alert/alert-controller';
 
 @Component({
   selector: 'page-home',
@@ -12,157 +12,166 @@ import nipplejs from 'nipplejs';
 })
 
 export class HomePage {
-  u = false;
-  d = false;
-  l = false;
-  r = false;
-  re = false;
-  pins: {
-    left:
-    {
-      front: string,
-      back: string
-    },
-    right: {
-      front: string,
-      back: string
-    }
-  };
-  status = 'VELOCIDADE';
+  servidores: any[];
+  ip;
+  porta = 1337;
+  constructor(
+    private navCtrl: NavController,
+    public zone: NgZone,
+    public loadingCtrl: LoadingController,
+    public alertCtrl: AlertController
+  ) {
 
-  constructor(private navCtrl: NavController, private socket: WebSocketProvider, private toastCtrl: ToastController) {
-    this.socket.connect();  
-    this.socket.on('close',()=>{
-      this.showToast('Conexão encerrada');
-    });
     
-
   }
-  
+  buscarJeredys() {
+    this.servidores = [];
+    var port = 1337;
+    var ipBase = "192.168.0.";
+    var ipLow = 1;
+    var ipHigh = 255;
+    var ipCurrent = +ipLow;
+    ipHigh = +ipHigh;
+    let loading = this.loadingCtrl.create({
+      content: "Buscando Jeredy's",
+      spinner: 'dots'
+    });
+    loading.present();
+    while (ipCurrent <= ipHigh) {
+      this.tryOne(ipBase, ipCurrent++, port, loading);
 
 
-
-
-  ionViewWillLeave() {
-    this.socket.disconnect();
-  }
-  gas(f) {
-    if (f) {
-      this.showToast('Acelera');
-      this.socket.emit('acelerador');
-    }
-  }
-  reverse(f) {
-    if (f) {
-      this.showToast('Reverso');
-      this.socket.emit('reverso');
     }
 
   }
-  break() {
+
+  tryOne(ipBase, ip, port, loading) {
+    var address = "http://" + ipBase + ip + ":" + port;
+    var socket = io(address, {
+      reconnection: false,
+      autoConnect: false,
+      timeout: 1000
+    });
+    socket.connect();
+    socket.on('connect', () => {
+      socket.emit('jeredy');
+      //this.sockets.push(socket);
+      socket.on('jeredy', (data) => {
+        this.zone.run(() => {
+          var time = setTimeout( ()=>{
+            loading.dismiss();
+          },1000);
+          this.servidores.push({ endereco: address, data: data });
+          socket.disconnect();
+        });
+      });
+    });
+
+    socket.on('connect_error', (err) => {
+      if (ip == 255) {
+        var time = setTimeout( ()=>{
+          loading.dismiss();
+        },40000);
+        
+        
+      }
+
+
+    });
+
+  }
+  showAlert() {
+    let prompt = this.alertCtrl.create({
+      title: 'Busca Manual',
+      message: "Digite o IP do Jeredy",
+      inputs: [
+        {
+          name: 'ip',
+          placeholder: 'ex: 192.168.0.1'
+        },
+      ],
+      buttons: [
+        {
+          text: 'Cancela',
+          handler: data => {
+
+          }
+        },
+        {
+          text: 'Buscar',
+          handler: data => {
+            this.ip = data.ip;
+            this.buscaManual();
+            console.log(data);
+          }
+        }
+      ]
+    });
+    prompt.present();
+
+  }
+  buscaManual() {
     
-    this.socket.emit('freio');
-  }
-  left(f) {
-    if (f) {
-      this.showToast('Esquerda');
-      this.socket.emit('esquerda');
+    let ipRegex = /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    if (!ipRegex.test(this.ip)) {
+      this.alertCtrl.create({
+        title: "Erro",
+        subTitle: "IP Inválido",
+        message: "O IP não é válido digite um ip válido e tente novamente",
+        buttons: [
+          {
+            text: "OK"
+          }
+        ]
+      }).present();
+      return;
     }
-  }
-  right(f) {
-    if (f) {
-      this.showToast('Direita');
-      this.socket.emit('direita');
-    }
-  }
-  pinos() {
-    this.socket.emit('reverso');
-    console.log('Pega Pinos');
-  }
-  showToast(msg) {
-    let toast = this.toastCtrl.create({
-      message: msg,
-      duration: 1000,
-      position: 'middle'
+    this.servidores = [];
+    var address = "http://" + this.ip + ":" + this.porta;
+    var socket = io(address, {
+      reconnection: false,
+      autoConnect: false,
+      timeout: 1000
     });
-    toast.present();
-  }
-  ionViewDidLoad() {
-    let options = {
-      zone: document.getElementById('zone_joystick'),
-      mode: 'static',
-      position: { left: '30%', top: '100%' },
-      color: 'red',
-
-    };
-    let options2 = {
-      zone: document.getElementById('zone_joystick2'),
-      mode: 'static',
-      position: { left: '70%', top: '100%' },
-      color: 'orange'
-
-    };
-
-    let manager = nipplejs.create(options);
-    let manager2 = nipplejs.create(options2);
-
-    manager.on('move', (evt, nipple) => {
-      if (nipple.direction.angle == 'up' && nipple.force >= 0.8) {
-        if (!this.u) {
-          this.d= false;
-          this.break();
-          this.gas(true);
-          this.u = true;
-        }
-      } else if (nipple.direction.angle == 'down' && nipple.force >= 0.8) {
-        if (!this.d) {
-          this.u = false;
-          this.break();
-          this.reverse(true);
-          this.d = true;
-        }
-
-      }
+    socket.connect();
+    let loading = this.loadingCtrl.create({
+      content: "Buscando Jeredy's",
+      spinner: 'dots'
     });
-    manager2.on('move', (evt, nipple) => {
-    
-      if (nipple.direction.angle == 'left' && nipple.force >= 0.8) {
-        if (!this.l) {
-          this.r = false;
-          this.break();
-          this.left(true);
-          this.l = true;
-        }
-      } else if (nipple.direction.angle == 'right' && nipple.force >= 0.8) {
-        if (!this.r) {
-          this.l = false;
-          this.break();
-          this.right(true);
-          this.r = true;
-        }
-      }
-    });
-    manager.on('end', () => {
-      if (this.d) {
-        this.break();
-        this.d = false;
-      }
-      if (this.u) {
-        this.break();
-        this.u = false;
-      }
-    });
-    manager2.on('end', () => {
-      if (this.l) {
-        this.break();
-        this.l = false;
-      }
-      if (this.r) {
-        this.break();
-        this.r = false;
-      }
+    loading.present();
+    socket.on('connect', () => {
+      socket.emit('jeredy');
+      //this.sockets.push(socket);
+      socket.on('jeredy', (data) => {
+        this.zone.run(() => {
+          loading.dismiss();
+          this.servidores.push({ endereco: address, data: data });
+          socket.disconnect();
+        });
+      });
     });
 
+    socket.on('connect_error', (err) => {
+      loading.dismiss();
+      this.alertCtrl.create({
+        title: 'Opa',
+        subTitle: 'Falha no engano',
+        message: "Nenhum Jeredy encontrado, verfique o servidor e a sua conexão",
+        buttons: [
+          {
+            text: 'OK'
+          }
+        ]
+      }).present();
+
+
+
+    })
   }
+  gotoCotroller(s) {
+    this.navCtrl.push('JeredyControllerPage', { servidor: s });
+  }
+
+
 }
 
