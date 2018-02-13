@@ -3,8 +3,8 @@
   <ion-list>
     <ion-card *ngFor="let s of servidores" (click)="gotoCotroller(s)">
       <img src="assets/imgs/jeredy.jpg" />
-      <div class="card-title">{{s.data.nome}}</div>
-      <div class="card-subtitle">Versão: {{s.data.versao}}</div>
+      <div class="card-title">{{s.data.name}}</div>
+      <div class="card-subtitle">Versão: {{s.data.version}}</div>
     </ion-card>
   </ion-list>
 </ion-content>
@@ -12,10 +12,12 @@
 
   <ion-grid>
     <ion-row>
+      <!--
       <ion-col col-6>
         <button ion-button block (click)="buscarJeredys()">Busca Automática</button>
       </ion-col>
-      <ion-col col-6>
+    -->
+      <ion-col >
         <button ion-button block (click)="showAlert()">Busca Manual</button>
       </ion-col>
     </ion-row>

@@ -7,6 +7,7 @@ import { StatusBar } from '@ionic-native/status-bar';
 import { MyApp } from './app.component';
 import { HomePage } from '../pages/home/home';
 import { ScreenOrientation } from '@ionic-native/screen-orientation';
+import { Hotspot} from '@ionic-native/hotspot';
 
 
 @NgModule({
@@ -29,6 +30,8 @@ import { ScreenOrientation } from '@ionic-native/screen-orientation';
     SplashScreen,
     {provide: ErrorHandler, useClass: IonicErrorHandler},
     ScreenOrientation,
+    Hotspot
+
   ]
 })
 export class AppModule {}

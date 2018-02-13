@@ -8,13 +8,14 @@ import { AlertController } from 'ionic-angular/components/alert/alert-controller
 import { Alert } from 'ionic-angular/components/alert/alert';
 import { OnInit } from '@angular/core';
 import { ScreenOrientation } from '@ionic-native/screen-orientation';
+import { ToastController } from 'ionic-angular/components/toast/toast-controller';
 
 @IonicPage()
 @Component({
   selector: 'page-jeredy-controller',
   templateUrl: 'jeredy-controller.html',
 })
-export class JeredyControllerPage implements OnInit{
+export class JeredyControllerPage implements OnInit {
   u = false;
   d = false;
   l = false;
@@ -23,19 +24,25 @@ export class JeredyControllerPage implements OnInit{
   servidor;
   loading: Loading;
   alert: Alert;
-  erro;
+  status;
   constructor(private navCtrl: NavController,
     private loadingCtrl: LoadingController,
     private navParam: NavParams,
     private alertCtrl: AlertController,
-    private screenOrientation: ScreenOrientation) {
-    this.erro = false;;
+    private screenOrientation: ScreenOrientation,
+    private toastCrtl: ToastController) {
     this.servidor = this.navParam.get('servidor');
     this.socket = io(this.servidor.endereco, {
       reconnectionAttempts: 5
     });
     this.showLoad('Connectando ao Jeredy');
     this.socket.connect();
+    setInterval(()=>{
+      this.socket.emit('latency', Date.now(), function(startTime) {
+        var latency = Date.now() - startTime;
+        this.status = latency;
+    });
+    },200);
     this.socket.emit('pair');
     this.socket.on('userAllowed', () => {
       this.closeLoad();
@@ -44,6 +51,15 @@ export class JeredyControllerPage implements OnInit{
       this.closeLoad();
       this.showAlert("Não Foi Possivél Conectar. Outro usuário está Conectado", "Permissão Negada");
     });
+    this.socket.on('reconnect', () => {
+      this.closeLoad();
+      this.toastCrtl.create({
+        message: "Reconectado",
+        position: 'top',
+        duration: 2000,
+        dismissOnPageChange: true
+      }).present();
+    })
     this.socket.on('reconnect_failed', () => {
       this.closeLoad();
       this.showAlert("Não Foi Possivél Reconectar", "Conexão Perdida");
@@ -64,18 +80,24 @@ export class JeredyControllerPage implements OnInit{
         message: msg,
         title: "Erro",
         subTitle: subtitle,
+
         buttons: [
           {
             text: "OK",
             handler: () => {
-        
+
             }
           }
         ]
       })
-      this.alert.present().then( ()=>{
+      this.alert.onDidDismiss(() => {
+
         this.navCtrl.pop();
+        this.screenOrientation.lock(this.screenOrientation.ORIENTATIONS.PORTRAIT);
+
       });
+      this.alert.present();
+
     }
   }
 
@@ -83,7 +105,8 @@ export class JeredyControllerPage implements OnInit{
     if (!this.loading) {
       this.loading = this.loadingCtrl.create({
         content: msg,
-        spinner: 'dots'
+        spinner: 'dots',
+        dismissOnPageChange: true
 
       });
       this.loading.present();
@@ -96,11 +119,12 @@ export class JeredyControllerPage implements OnInit{
 
 
 
-  ngOnInit(){
+  ngOnInit() {
     this.screenOrientation.unlock();
     this.screenOrientation.lock(this.screenOrientation.ORIENTATIONS.LANDSCAPE);
   }
   ionViewWillLeave() {
+    this.screenOrientation.lock(this.screenOrientation.ORIENTATIONS.PORTRAIT);
     this.socket.disconnect();
   }
   gas(f) {
@@ -135,14 +159,14 @@ export class JeredyControllerPage implements OnInit{
     let options = {
       zone: document.getElementById('zone_joystick'),
       mode: 'static',
-      position: { left: '30%', top: '100%' },
+      position: { left: '40%', top: '70%' },
       color: 'red',
 
     };
     let options2 = {
       zone: document.getElementById('zone_joystick2'),
       mode: 'static',
-      position: { left: '70%', top: '100%' },
+      position: { left: '60%', top: '70%' },
       color: 'orange'
 
     };
