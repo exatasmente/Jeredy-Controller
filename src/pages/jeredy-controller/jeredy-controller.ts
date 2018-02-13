@@ -25,6 +25,7 @@ export class JeredyControllerPage implements OnInit {
   loading: Loading;
   alert: Alert;
   status;
+  interval;
   constructor(private navCtrl: NavController,
     private loadingCtrl: LoadingController,
     private navParam: NavParams,
@@ -37,15 +38,16 @@ export class JeredyControllerPage implements OnInit {
     });
     this.showLoad('Connectando ao Jeredy');
     this.socket.connect();
-    setInterval(()=>{
-      this.socket.emit('latency', Date.now(), function(startTime) {
-        var latency = Date.now() - startTime;
-        this.status = latency;
-    });
-    },200);
     this.socket.emit('pair');
     this.socket.on('userAllowed', () => {
       this.closeLoad();
+      this.interval = setInterval(() => {
+        this.socket.emit('latency', Date.now(), (time) => {
+          var latency = Date.now() - time;
+          this.status = latency;
+  
+        });
+      }, 500);
     });
     this.socket.on('userOn', () => {
       this.closeLoad();
@@ -91,7 +93,7 @@ export class JeredyControllerPage implements OnInit {
         ]
       })
       this.alert.onDidDismiss(() => {
-
+        clearInterval(this.interval);
         this.navCtrl.pop();
         this.screenOrientation.lock(this.screenOrientation.ORIENTATIONS.PORTRAIT);
 
