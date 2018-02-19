@@ -16,10 +16,7 @@ import { ToastController } from 'ionic-angular/components/toast/toast-controller
   templateUrl: 'jeredy-controller.html',
 })
 export class JeredyControllerPage implements OnInit {
-  u = false;
-  d = false;
-  l = false;
-  r = false;
+  moviment = { up: 0, down: 0, left: 0, right: 0 };
   socket;
   servidor;
   loading: Loading;
@@ -34,25 +31,26 @@ export class JeredyControllerPage implements OnInit {
     private toastCrtl: ToastController) {
     this.servidor = this.navParam.get('servidor');
     this.socket = io(this.servidor.endereco, {
-      reconnectionAttempts: 5
+      reconnectionAttempts: 5,
+      timeout: 500
     });
     this.showLoad('Connectando ao Jeredy');
     this.socket.connect();
-    this.socket.emit('pair');
-    this.socket.on('userAllowed', () => {
+    this.socket.emit('pair', (value) => {
       this.closeLoad();
-      this.interval = setInterval(() => {
-        this.socket.emit('latency', Date.now(), (time) => {
-          var latency = Date.now() - time;
-          this.status = latency;
-  
-        });
-      }, 500);
+      if (value) {
+        this.interval = setInterval(() => {
+          this.socket.emit('latency', Date.now(), (time) => {
+            var latency = Date.now() - time;
+            this.status = latency;
+
+          });
+        }, 500);
+      } else {
+        this.showAlert("Não Foi Possivél Conectar. Outro usuário está Conectado", "Permissão Negada");
+      }
     });
-    this.socket.on('userOn', () => {
-      this.closeLoad();
-      this.showAlert("Não Foi Possivél Conectar. Outro usuário está Conectado", "Permissão Negada");
-    });
+
     this.socket.on('reconnect', () => {
       this.closeLoad();
       this.toastCrtl.create({
@@ -129,109 +127,264 @@ export class JeredyControllerPage implements OnInit {
     this.screenOrientation.lock(this.screenOrientation.ORIENTATIONS.PORTRAIT);
     this.socket.disconnect();
   }
-  gas(f) {
-    if (f) {
-      this.socket.emit('acelerador');
-    }
-  }
-  reverse(f) {
-    if (f) {
-
-      this.socket.emit('reverso');
-    }
-
-  }
-  break() {
-    this.socket.emit('freio');
-  }
-  left(f) {
-    if (f) {
-
-      this.socket.emit('esquerda');
-    }
-  }
-  right(f) {
-    if (f) {
-
-      this.socket.emit('direita');
-    }
+  moveRobot(values) {
+    this.socket.emit('moveRobot',values);
   }
 
   ionViewDidLoad() {
     let options = {
       zone: document.getElementById('zone_joystick'),
       mode: 'static',
-      position: { left: '40%', top: '70%' },
+      position: { left: '20%', top: '50%' },
       color: 'red',
 
+      isVerticalLocked: true
     };
     let options2 = {
       zone: document.getElementById('zone_joystick2'),
       mode: 'static',
-      position: { left: '60%', top: '70%' },
-      color: 'orange'
-
+      position: { left: '80%', top: '50%' },
+      color: 'orange',
+      isHorizontalLocked: true
     };
 
     let manager = nipplejs.create(options);
     let manager2 = nipplejs.create(options2);
 
     manager.on('move', (evt, nipple) => {
-      if (nipple.direction.angle == 'up' && nipple.force >= 0.8) {
-        if (!this.u) {
-          this.d = false;
-          this.break();
-          this.gas(true);
-          this.u = true;
+      try {
+        if (nipple.direction.angle == 'up' && nipple.force >= 0.8) {
+          this.moviment.up = 1;
+          this.moviment.down = 0;
+          if (this.moviment.left) {
+            this.moveRobot(this.moveUpLeft());
+          } else if (this.moviment.right) {
+            this.moveRobot(this.moveUpRight());
+          } else {
+            this.moveRobot(this.moveUp());
+          }
+        } else if (nipple.direction.angle == 'down' && nipple.force >= 0.8) {
+          this.moviment.down = 1;
+          this.moviment.up = 0;
+          if (this.moviment.left) {
+            this.moveRobot(this.moveDownLeft());
+          } else if (this.moviment.right) {
+            this.moveRobot(this.moveDownRight());
+          } else {
+            this.moveRobot(this.moveDown());
+          }
+        } else {
+          this.moviment.up = 0;
+          this.moviment.down = 0;
+          this.moveRobot(this.moveStop());
         }
-      } else if (nipple.direction.angle == 'down' && nipple.force >= 0.8) {
-        if (!this.d) {
-          this.u = false;
-          this.break();
-          this.reverse(true);
-          this.d = true;
-        }
+
+      } catch (e) {
 
       }
     });
     manager2.on('move', (evt, nipple) => {
+      try {
+        if (nipple.direction.angle == 'left' && nipple.force >= 0.8) {
+          this.moviment.left = 1;
+          this.moviment.right = 0;
+          if (this.moviment.up) {
+            this.moveRobot(this.moveUpLeft());
+          } else if (this.moviment.down) {
+            this.moveRobot(this.moveDownLeft());
+          } else {
+            this.moveRobot(this.moveLeft());
+          }
+        } else if (nipple.direction.angle == 'right' && nipple.force >= 0.8) {
+          this.moviment.right = 1;
+          this.moviment.left = 0;
+          if (this.moviment.up) {
+            this.moveRobot(this.moveUpRight());
+          } else if (this.moviment.down) {
+            this.moveRobot(this.moveDownRight());
+          } else {
+            this.moveRobot(this.moveRight());
+          }
+        } else {
+          this.moviment.left = 0;
+          this.moviment.right = 0;
+          this.moveRobot(this.moveStop());
+        }
+      } catch (e) {
 
-      if (nipple.direction.angle == 'left' && nipple.force >= 0.8) {
-        if (!this.l) {
-          this.r = false;
-          this.break();
-          this.left(true);
-          this.l = true;
-        }
-      } else if (nipple.direction.angle == 'right' && nipple.force >= 0.8) {
-        if (!this.r) {
-          this.l = false;
-          this.break();
-          this.right(true);
-          this.r = true;
-        }
       }
     });
+
     manager.on('end', () => {
-      if (this.d) {
-        this.break();
-        this.d = false;
+      this.moviment.up = 0;
+      this.moviment.down = 0;
+      if (this.moviment.left) {
+        this.moveRobot(this.moveLeft());
+      } else if (this.moviment.right) {
+        this.moveRobot(this.moveRight());
+      } else {
+        this.moveRobot(this.moveStop());
       }
-      if (this.u) {
-        this.break();
-        this.u = false;
-      }
+
     });
     manager2.on('end', () => {
-      if (this.l) {
-        this.break();
-        this.l = false;
-      }
-      if (this.r) {
-        this.break();
-        this.r = false;
+      this.moviment.left = 0;
+      this.moviment.right = 0;
+      if (this.moviment.up) {
+        this.moveRobot(this.moveUp());
+      } else if (this.moviment.down) {
+        this.moveRobot(this.moveDown());
+      } else {
+        this.moveRobot(this.moveStop());
       }
     });
 
   }
+
+
+
+
+  moveUp() {
+    return {
+      left:
+        {
+          front: 1,
+          back: 1,
+          reverse: [0, 0]
+        },
+      right: {
+        front: 1,
+        back: 1,
+        reverse: [0, 0]
+      }
+    };
+  }
+  moveUpLeft() {
+    return {
+      left:
+        {
+          front: 1,
+          back: 1,
+          reverse: [0, 0]
+        },
+      right: {
+        front: 0,
+        back: 0,
+        reverse: [0, 0]
+      }
+    };
+  }
+  moveUpRight() {
+    return {
+      left:
+        {
+          front: 0,
+          back: 0,
+          reverse: [0, 0]
+        },
+      right: {
+        front: 1,
+        back: 1,
+        reverse: [0, 0]
+      }
+    };
+  }
+
+  moveDownLeft() {
+    return {
+      left:
+        {
+          front: 0,
+          back: 0,
+          reverse: [0, 0]
+        },
+      right: {
+        front: 0,
+        back: 0,
+        reverse: [1, 1]
+      }
+    };
+  }
+
+  moveDownRight() {
+    return {
+      left:
+        {
+          front: 0,
+          back: 0,
+          reverse: [1, 1]
+        },
+      right: {
+        front: 0,
+        back: 0,
+        reverse: [0, 0]
+      }
+    };
+  }
+
+  moveDown() {
+    return {
+      left:
+        {
+          front: 0,
+          back: 0,
+          reverse: [1, 1]
+        },
+      right: {
+        front: 0,
+        back: 0,
+        reverse: [1, 1]
+      }
+    };
+  }
+  moveRight() {
+    return {
+      left:
+        {
+          front: 0,
+          back: 0,
+          reverse: [1, 1]
+        },
+      right: {
+        front: 1,
+        back: 1,
+        reverse: [0, 0]
+      }
+    };
+  }
+  moveLeft() {
+    return {
+      left:
+        {
+          front: 1,
+          back: 1,
+          reverse: [0, 0]
+        },
+      right: {
+        front: 0,
+        back: 0,
+        reverse: [1, 1]
+      }
+    };
+  }
+  moveStop() {
+    return {
+      left:
+        {
+          front: 0,
+          back: 0,
+          reverse: [0, 0]
+        },
+      right: {
+        front: 0,
+        back: 0,
+        reverse: [0, 0]
+      }
+    };
+  }
+
+
+
 }
+
+

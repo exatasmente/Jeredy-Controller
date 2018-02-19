@@ -8,6 +8,7 @@ import { AlertController } from 'ionic-angular/components/alert/alert-controller
 import { ScreenOrientation } from '@ionic-native/screen-orientation';
 import { Hotspot, HotspotNetwork } from '@ionic-native/hotspot';
 import { OnInit } from '@angular/core';
+import { ModalController } from 'ionic-angular/components/modal/modal-controller';
 
 @Component({
   selector: 'page-home',
@@ -17,7 +18,7 @@ import { OnInit } from '@angular/core';
 export class HomePage implements OnInit {
   servidores: any[];
   ip;
-  baseIp;
+  baseIp = '192.168.0.';
   porta = 1337;
   constructor(
     private navCtrl: NavController,
@@ -25,22 +26,46 @@ export class HomePage implements OnInit {
     public loadingCtrl: LoadingController,
     public alertCtrl: AlertController,
     private screenOrientation: ScreenOrientation,
-    private hotspot: Hotspot
+    private hotspot: Hotspot,
+    private modalCtrl: ModalController
   ) {
-    this.screenOrientation.lock(this.screenOrientation.ORIENTATIONS.PORTRAIT);
+
 
   }
   ngOnInit() {
+    this.screenOrientation.lock(this.screenOrientation.ORIENTATIONS.PORTRAIT);
     this.hotspot.isWifiOn().then(rep => {
       if (!rep) {
+        this.alertCtrl.create({
+          title: 'Wifi desabilitado',
+          message: 'Conecte-se a uma rede sem Fio',
+          buttons: [{
+            text: 'Conectar',
+            handler: () => {
+              this.hotspot.toggleWifi().then((rep) => {
+                if (rep) {
+                  let modal = this.modalCtrl.create('WifiPage');
+                  modal.onDidDismiss(() => {
+                    this.hotspot.getConnectionInfo().then(info => {
+                      this.baseIp = info.IPAddress.slice(1, info.IPAddress.lastIndexOf('.') + 1);
+                      console.log(this.baseIp);
+                    });
+                  });
+                  modal.present();
+                }
+              });
+            }
+          }]
+        }).present();
 
-      }else{
+      } else {
         this.hotspot.getConnectionInfo().then(info => {
-          this.baseIp = info.IPAddress.slice(0,info.IPAddress.lastIndexOf('.')-1);
-          console.log(info.IPAddress);
+          this.baseIp = info.IPAddress.slice(1, info.IPAddress.lastIndexOf('.') + 1);
+          console.log(this.baseIp);
         });
       }
     });
+
   }
   buscarJeredys() {
     this.servidores = [];
@@ -55,7 +80,7 @@ export class HomePage implements OnInit {
       spinner: 'dots'
     });
     loading.present();
-    while (ipCurrent <= ipHigh) {
+    while (ipCurrent < ipHigh) {
       this.tryOne(ipBase, ipCurrent++, port, loading);
 
 
@@ -85,10 +110,10 @@ export class HomePage implements OnInit {
     });
 
     socket.on('connect_error', (err) => {
-      if (ip == 255) {
+      if (ip == 254) {
         var time = setTimeout(() => {
           loading.dismiss();
-        }, 15000);
+        }, 5000);
 
 
       }
@@ -196,9 +221,9 @@ export class HomePage implements OnInit {
     socket.connect();
     socket.on('connect', () => {
       socket.disconnect();
-      setTimeout(()=>{
+      setTimeout(() => {
         this.navCtrl.push('JeredyControllerPage', { servidor: s })
-      },1000);
+      }, 1000);
     });
 
     socket.on('connect_error', (err) => {

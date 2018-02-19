@@ -1,0 +1,18 @@
+<ion-header>
+
+  <ion-navbar color="secondary">
+    <ion-title>Conexão Sem Fio</ion-title>
+  </ion-navbar>
+
+</ion-header>
+
+
+<ion-content style="background-color: #2e5c74;" >
+  <ion-list>
+      <ion-item *ngFor="let rede of redes" (click)="openWifi(rede)">
+        <ion-icon item-left name="ios-wifi"></ion-icon>
+        <h2>{{rede.SSID}}</h2>
+      </ion-item>
+  </ion-list>
+
+</ion-content>
